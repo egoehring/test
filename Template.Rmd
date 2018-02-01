@@ -1,0 +1,157 @@
+---
+title: "Marc's Template"
+author: "Marc Los Huertos"
+date: "1/29/2018"
+output: html_document
+---
+
+# Introduction
+
+Here I would right some valuable information about what you should know about climate trends... :-)
+
+NOTE: I will update this as we go for those of you that have questions!
+
+## Importing File
+
+The following section includes code to read the csv file.
+
+```{r setup, include=FALSE}
+# This R chunk sets up the analysis
+
+knitr::opts_chunk$set(echo = TRUE) # uses knitr to create an output
+
+#-------------------------------------------------------------
+
+# Create a path to the data source
+# To get the file path, use file.choose() 
+file="/Users/Eliana/Desktop/test/climate_data.csv"
+
+# reads csv file into R, kind of like importing, so I named the object import...
+
+import <- read.csv(file)
+```
+
+## What data did I read?
+
+Once the data have been `read' it is key to check to make sure the file reading was done correctly AND that you understand what the format of the data are. Each time you read a file, you should check to make sure that R has read the file correctly, or you might end up wasting lots of time with the wrong format or entries or both.
+
+### What was the result of the read function?
+
+One place to start it to look at the top few obervations, which can be done with the head() function. 
+
+```{r}
+head(import)
+```
+
+Next we should appreciate the structure of the read data. For example is the data a vector, list, dataframe, or something else?
+
+We can use the str() function to evaluate the object:
+
+```{r}
+str(import)
+```
+
+From this we learn we created a dataframe with hundreds of thousands of observations, and several variables.
+
+Finally, just to review how to "extact" a vector, we can use the data frame, dollar sign and the varible name (in all caps -- convince yourself that this is the case!).
+
+```{r}
+
+# This will produce pages of text, so I subset this to print the first ten observations...
+import$PRCP[1:10]
+```
+
+Unfortunately, there are missing varibles here, but we get the idea of how to extract a few (10) observations from a dataframe.
+
+## Preparing the Data
+
+One of the problems of the dataframe is that the variable DATE is formatted as a factor. Convince yourself with this by running the str() function again. 
+
+We can't run a trend line, because the dates are not ordered in a numeric fashion. So, we'll re-format the DATE data.
+
+### Getting an External Library
+
+Unfortunately, there are many complicated ways to accomplish changing the format of a variable. However, one of the cool things abour R is that people are imporving it regulary and loading groups of functions in libraries to help solve specific problems. 
+
+We will use the `lubridate' library for our problem.
+
+To get this package/libary, you'll need to install it!  Got to the "Packages" tab and select "Install" then search for lubridate for installation.
+
+```{r}
+library(lubridate)
+mydate <- mdy(import$DATE) # Convert Dates to Date Format and put this into a vector
+
+head(mydate) # Checking what we created! 
+
+import$NewDate <- mydate; head(import) # Create a new variable in our dataframe
+```
+
+
+## Selecting a Station
+
+Once we have fixed our formating the format we need, select our station of interest. To subset, we use a library called dplyr and the filter function. We can use a different syntax, so it's abit tricky, but follow these steps and you should be fine. 
+
+### Detemining your site NAME
+
+You can find out the names of the station names by extracting the number of levels:
+
+```{r}
+levels(import$NAME)
+
+```
+
+Based on this, we can select the station of interest:
+
+```{r}
+beijing = dplyr::filter(import, NAME == "BEIJING, CH")
+```
+
+## Ploting all the data
+
+```{r}
+plot(TMAX ~ NewDate, beijing)
+```
+
+Unfortunately, this figure is messy and it's hard to see if any trend because the daily data is far too dense. So, let's change create monthly averages.
+
+## Calculating Monthly Means
+
+
+```{r}
+beijing$Month = format(as.Date(beijing$NewDate), format = "%m")
+beijing$Year = format(beijing$NewDate, format="%Y")
+
+MonthlyTMAXMean = aggregate(TMAX ~ Month + Year, beijing, mean)
+MonthlyTMAXMean$YEAR = as.numeric(MonthlyTMAXMean$Year)
+MonthlyTMAXMean$MONTH = as.numeric(MonthlyTMAXMean$Month)
+
+head(MonthlyTMAXMean)
+
+plot(MonthlyTMAXMean$TMAX, ty='l')
+
+```
+
+## Creating Plots
+
+Creating figure for each month, means that you'll need to change the month of interest manually. Let's start with May (05). Feel free to explore the options. The best graphic will get a prize!
+
+```{r}
+month = "05"
+```
+
+I changed the default with this figure so we have a scatter with a thicker red line for the trend.
+```{r}
+plot(TMAX~YEAR, data=MonthlyTMAXMean[MonthlyTMAXMean$Month==month,],
+     ty='p')
+May.lm <- lm(TMAX~YEAR, data=MonthlyTMAXMean[MonthlyTMAXMean$Month==month,])
+summary(May.lm)
+abline(coef(May.lm), col='red', lwd=2)
+
+```
+
+Notice the strange dramatic increase in 1980/81. This suggest a data problem. I suggest you investigate the data source and see if there was a problem, e.g. was the station moved? was there a source of systematic error?
+
+## Next Steps
+
+I suggest you evaluate other variables, such as TMIN, TAVE, SNOW, etc. and see if there are additional trends to discuss.
+

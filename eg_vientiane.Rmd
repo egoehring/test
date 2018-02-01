@@ -1,0 +1,245 @@
+---
+title: "eg_vientiane"
+output: html_document
+---
+
+
+# Introduction
+
+Here I would right some valuable information about what you should know about climate trends... :-)
+
+NOTE: I will update this as we go for those of you that have questions!
+
+## Importing File
+
+The following section includes code to read the csv file.
+
+```{r setup, include=FALSE}
+# This R chunk sets up the analysis
+
+knitr::opts_chunk$set(echo = TRUE) # uses knitr to create an output
+
+#-------------------------------------------------------------
+
+# Create a path to the data source
+# To get the file path, use file.choose() 
+file="/Users/Eliana/Desktop/test/vientiane_data.csv"
+
+# reads csv file into R, kind of like importing, so I named the object import...
+
+import <- read.csv(file)
+```
+
+## What data did I read?
+
+Once the data have been `read' it is key to check to make sure the file reading was done correctly AND that you understand what the format of the data are. Each time you read a file, you should check to make sure that R has read the file correctly, or you might end up wasting lots of time with the wrong format or entries or both.
+
+### What was the result of the read function?
+
+One place to start it to look at the top few obervations, which can be done with the head() function. 
+
+```{r}
+head(import)
+```
+
+Next we should appreciate the structure of the read data. For example is the data a vector, list, dataframe, or something else?
+
+We can use the str() function to evaluate the object:
+
+```{r}
+str(import)
+```
+
+From this we learn we created a dataframe with hundreds of thousands of observations, and several variables.
+
+Finally, just to review how to "extact" a vector, we can use the data frame, dollar sign and the varible name (in all caps -- convince yourself that this is the case!).
+
+```{r}
+
+# This will produce pages of text, so I subset this to print the first ten observations...
+import$PRCP[1:10]
+```
+
+Unfortunately, there are missing varibles here, but we get the idea of how to extract a few (10) observations from a dataframe.
+
+## Preparing the Data
+
+One of the problems of the dataframe is that the variable DATE is formatted as a factor. Convince yourself with this by running the str() function again. 
+
+We can't run a trend line, because the dates are not ordered in a numeric fashion. So, we'll re-format the DATE data.
+
+### Getting an External Library
+
+Unfortunately, there are many complicated ways to accomplish changing the format of a variable. However, one of the cool things abour R is that people are imporving it regulary and loading groups of functions in libraries to help solve specific problems. 
+
+We will use the `lubridate' library for our problem.
+
+To get this package/libary, you'll need to install it!  Got to the "Packages" tab and select "Install" then search for lubridate for installation.
+
+```{r}
+library(lubridate)
+mydate <- mdy(import$DATE) # Convert Dates to Date Format and put this into a vector
+#mydate <- as.Date(strDates, "%Y-%m-%d")
+head(mydate) # Checking what we created! 
+
+import$NewDate <- mydate; head(import) # Create a new variable in our dataframe
+vientiane$NewDate <- mydate
+```
+
+
+## Selecting a Station
+
+Once we have fixed our formating the format we need, select our station of interest. To subset, we use a library called dplyr and the filter function. We can use a different syntax, so it's abit tricky, but follow these steps and you should be fine. 
+
+### Determining your site NAME
+
+You can find out the names of the station names by extracting the number of levels:
+
+```{r}
+levels(import$NAME)
+
+```
+
+Based on this, we can select the station of interest:
+
+```{r}
+vientiane = dplyr::filter(import, NAME == "WATTAY INTERNATIONAL, LA")
+```
+
+## Ploting all the data
+
+```{r}
+data <- data.frame(vientiane$NewDate,vientiane$TMAX,vientiane$TMIN, vientiane$TAVG)
+ggplot(data, aes(vientiane$NewDate)) +                    # basic graphical object
+  geom_line(aes(y=vientiane$TMAX), colour="red") +  # first layer
+  geom_line(aes(y=vientiane$TMIN), colour="green") +
+  geom_line(aes(y=vientiane$TAVG), colour="blue") 
+#plot(TMAX ~ NewDate, vientiane)
+```
+
+Unfortunately, this figure is messy and it's hard to see if any trend because the daily data is far too dense. So, let's change create monthly averages.
+
+## Calculating Monthly Means
+
+
+```{r}
+vientiane$Month = format(as.Date(vientiane$NewDate), format = "%m")
+vientiane$Year = format(vientiane$NewDate, format="%Y")
+
+MonthlyTMAXMean = aggregate(TMAX ~ Month + Year, vientiane, mean)
+MonthlyTMAXMean$YEAR = as.numeric(MonthlyTMAXMean$Year)
+MonthlyTMAXMean$MONTH = as.numeric(MonthlyTMAXMean$Month)
+
+
+MonthlyTAVGMean = aggregate(TAVG ~ Month + Year, vientiane, mean)
+MonthlyTAVGMean$YEAR = as.numeric(MonthlyTAVGMean$Year)
+MonthlyTAVGMean$MONTH = as.numeric(MonthlyTAVGMean$Month)
+
+
+YearlyTAVGMean = aggregate(TAVG ~ Year, vientiane, mean)
+YearlyTAVGMean$YEAR = as.numeric(YearlyTAVGMean$Year)
+YearlyTAVGMean <- YearlyTAVGMean[1:67,]
+
+
+MonthlyTMINMean = aggregate(TMIN ~ Month + Year, vientiane, mean)
+MonthlyTMINMean$YEAR = as.numeric(MonthlyTMINMean$Year)
+MonthlyTMINMean$MONTH = as.numeric(MonthlyTMINMean$Month)
+
+#head(MonthlyTMAXMean)
+head(MonthlyTMINMean)
+
+# x <-(1:MonthlyTMAXMean$YEAR)
+# y<-(1:MonthlyTMAXMean$TMAX)
+
+plot(YearlyTAVGMean$Year, YearlyTAVGMean$TAVG)
+
+# x <- YearlyTAVGMean$Year
+# y <-YearlyTAVGMean$TAVG
+#  library(ggplot2)
+#  d <- data.frame(YearlyTAVGMean$Year, YearlyTAVGMean$TAVG)
+#  spline_int <- as.data.frame(spline(x, y))
+# # spline_int2 <- as.data.frame(spline(x, MonthlyTMINMean$TMIN))
+#  ggplot(d) + 
+#     geom_point(aes(x, y, colour = 'green'), size = 3) +
+#     geom_line(data = spline_int, aes(x, y, color = 'green'))
+#   geom_point(aes(x, y = MonthlyTMINMean$TMIN, colour = 'red'), size = 3) +
+#   geom_line(data = spline_int2, aes(x = x, y = y), color = 'green') +
+# 
+#   labs(title="Average Max and Min Temperatures by Month",
+#         x ="Month", y = "Temperature (˚F)")+
+#   scale_shape_discrete(name  ="Legend")#,labels=c("Average Tmax", "Average Tmin"),
+
+#d <- data.frame(x,MonthlyTMAXMean$TMAX)#,MonthlyTMINMean$TMIN)
+#plot( MonthlyTMAXMean$TMAX, ty='l')
+
+#ggplot(df, aes(x)) +                    # basic graphical object
+ # geom_line(aes(y=MonthlyTMAXMean$TMAX), colour="red") +  # first layer
+  #geom_line(aes(y=MonthlyTMINMean$TMIN), colour="green") 
+
+```
+
+## Creating Plots
+
+Creating figure for each month, means that you'll need to change the month of interest manually. Let's start with May (05). Feel free to explore the options. The best graphic will get a prize!
+
+```{r}
+plot(TAVG~YEAR, data=YearlyTAVGMean,
+       xlab="Year", 
+       ylab = 'Average Daily Temperature per Year (˚F)')
+fo <- lm(TAVG~YEAR, data=YearlyTAVGMean) # Creates a linear model
+summary(fo) # Extract the results of the linear model
+coefficients(fo)
+abline(coef(fo), col='red', lwd=2) #add the line for the slope and intercept of the linear model
+
+```
+
+I changed the default with this figure so we have a scatter with a thicker red line for the trend.
+```{r}
+
+month = "12"
+
+
+plot(TAVG~YEAR, data=MonthlyTAVGMean[MonthlyTAVGMean$Month==month,],
+     ty='p')
+May.lm <- lm(TAVG~YEAR, data=MonthlyTAVGMean[MonthlyTAVGMean$Month==month,])
+summary(May.lm)
+abline(coef(May.lm), col='red', lwd=2)
+
+```
+
+Notice the strange dramatic increase in 1980/81. This suggest a data problem. I suggest you investigate the data source and see if there was a problem, e.g. was the station moved? was there a source of systematic error?
+
+## Next Steps
+
+I suggest you evaluate other variables, such as TMIN, TAVE, SNOW, etc. and see if there are additional trends to discuss.
+
+```{r}
+
+MonthlyPRCPMean = aggregate(PRCP ~ Month + Year, vientiane, mean)
+MonthlyPRCPMean$YEAR = as.numeric(MonthlyPRCPMean$Year)
+MonthlyPRCPMean$MONTH = as.numeric(MonthlyPRCPMean$Month)
+
+month = "06"
+
+
+plot(PRCP~YEAR, data=MonthlyPRCPMean[MonthlyPRCPMean$Month==month,],
+     ty='p')
+water.lm <- lm(PRCP~YEAR, data=MonthlyPRCPMean[MonthlyPRCPMean$Month==month,])
+summary(water.lm)
+abline(coef(water.lm), col='red', lwd=2)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
